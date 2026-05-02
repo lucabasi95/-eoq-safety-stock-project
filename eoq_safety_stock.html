@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema EOQ &amp; Safety Stock</title>
+<style>
+:root{
+  --color-text-primary:#1a1a1a;
+  --color-text-secondary:#555;
+  --color-text-tertiary:#888;
+  --color-text-success:#1d6f44;
+  --color-text-info:#1a4d8a;
+  --color-text-danger:#a63232;
+  --color-text-warning:#8a6a1a;
+  --color-background-secondary:#f4f4f2;
+  --color-background-success:#e6f3ec;
+  --color-background-info:#e6eef8;
+  --color-background-danger:#fbeaea;
+  --color-background-warning:#f8f0e0;
+  --color-border-secondary:#bbb;
+  --color-border-tertiary:#ddd;
+  --border-radius-md:6px;
+  --border-radius-lg:10px;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --color-text-primary:#eee;--color-text-secondary:#bbb;--color-text-tertiary:#888;
+    --color-background-secondary:#1f1f1f;--color-border-secondary:#444;--color-border-tertiary:#333;
+  }
+  body{background:#0e0e0e;color:#eee;}
+}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  max-width:1100px;margin:1.5rem auto;padding:0 1rem;color:var(--color-text-primary);line-height:1.55;}
+.tn{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.5rem}
+.tb{padding:7px 14px;border:0.5px solid var(--color-border-tertiary);background:transparent;
+  cursor:pointer;font-size:13px;color:var(--color-text-secondary);border-radius:var(--border-radius-md)}
+.tb.on{background:var(--color-background-secondary);color:var(--color-text-primary);font-weight:500}
+.pn{display:none}.pn.on{display:block}
+.mc{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:1rem}
+.ml{font-size:12px;color:var(--color-text-secondary);margin:0 0 4px}
+.mv{font-size:20px;font-weight:500;margin:0;font-family:var(--font-mono)}
+.mu{font-size:11px;color:var(--color-text-tertiary);margin:2px 0 0}
+.g3{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1.5rem}
+.rw{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.rw label{font-size:13px;color:var(--color-text-secondary);min-width:230px;flex-shrink:0}
+.rw output{font-size:13px;font-weight:500;min-width:90px;font-family:var(--font-mono)}
+.rw input[type=number]{width:95px;padding:5px 7px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-primary);font-family:var(--font-mono);font-size:13px}
+.sep{height:0.5px;background:var(--color-border-tertiary);margin:1.5rem 0}
+h3{font-size:16px;font-weight:500;margin:0 0 1rem;color:var(--color-text-primary)}
+h4{font-size:11px;font-weight:500;margin:1.5rem 0 0.75rem;color:var(--color-text-secondary);
+  letter-spacing:0.06em;text-transform:uppercase}
+table{width:100%;font-size:13px;border-collapse:collapse}
+td,th{padding:7px 11px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:left}
+th{color:var(--color-text-secondary);font-weight:500;font-size:12px}
+.tg{display:inline-block;font-size:11px;padding:2px 8px;border-radius:var(--border-radius-md);font-weight:500}
+.ts{background:var(--color-background-success);color:var(--color-text-success)}
+.ti{background:var(--color-background-info);color:var(--color-text-info)}
+.td{background:var(--color-background-danger);color:var(--color-text-danger)}
+.tw{background:var(--color-background-warning);color:var(--color-text-warning)}
+.cd{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);
+  padding:1rem 1.25rem;margin-bottom:1rem}
+.nt{font-size:13px;color:var(--color-text-secondary);line-height:1.75;margin:0}
+.lg{display:flex;gap:14px;margin-bottom:8px;font-size:12px;color:var(--color-text-secondary);flex-wrap:wrap}
+.lg span{display:flex;align-items:center;gap:5px}
+.dot{width:10px;height:10px;border-radius:2px;display:inline-block;flex-shrink:0}
+.eq{font-family:var(--font-mono);font-size:13px;background:var(--color-background-secondary);
+  border-radius:var(--border-radius-md);padding:0.75rem 1rem;margin:0.5rem 0;color:var(--color-text-primary);line-height:2}
+</style>
+</head>
+<body>
+<p style="font-size:21px;font-weight:500;margin:0 0 2px">Sistema EOQ &amp; Safety Stock</p>
+<p style="font-size:12px;color:var(--color-text-tertiary);margin:0 0 1.5rem;font-family:var(--font-mono)">
+  Lotto Economico · Scorta di Sicurezza · Punto di Riordino · Simulazione 3 Anni
+</p>
+
+<div class="tn" id="nav"></div>
+
+<!-- =========================== PANNELLO 0 - PARAMETRI =========================== -->
+<div id="p0" class="pn on">
+  <h3>Parametri del Modello</h3>
+  <div class="cd">
+    <h4 style="margin-top:0">Domanda e Costi</h4>
+    <div class="rw"><label>Domanda annua &mdash; D (unit&agrave;/anno)</label>
+      <input type="range" id="rD" min="500" max="20000" step="100" value="5000" style="flex:1"
+        oninput="upd('D',+this.value)"><output id="oD">5.000 unit&agrave;</output>
+      <input type="number" id="nD" min="500" max="20000" step="100" value="5000" aria-label="Domanda annua" oninput="upd('D',+this.value)"></div>
+    <div class="rw"><label>Costo di setup per ordine &mdash; S (&euro;)</label>
+      <input type="range" id="rS" min="10" max="500" step="5" value="150" style="flex:1"
+        oninput="upd('S',+this.value)"><output id="oS">&euro; 150</output>
+      <input type="number" id="nS" min="10" max="500" step="5" value="150" aria-label="Costo di setup" oninput="upd('S',+this.value)"></div>
+    <div class="rw"><label>Costo mantenimento unitario &mdash; H (&euro;/unit&agrave;/anno)</label>
+      <input type="range" id="rH" min="1" max="100" step="1" value="25" style="flex:1"
+        oninput="upd('H',+this.value)"><output id="oH">&euro; 25</output>
+      <input type="number" id="nH" min="1" max="100" step="1" value="25" aria-label="Costo di mantenimento" oninput="upd('H',+this.value)"></div>
+  </div>
+  <div class="cd">
+    <h4 style="margin-top:0">Scorta di Sicurezza</h4>
+    <div class="rw"><label>Dev. std. domanda giornaliera &mdash; &sigma;<sub>d</sub></label>
+      <input type="range" id="rsd" min="0.1" max="15" step="0.1" value="2.5" style="flex:1"
+        oninput="upd('sd',+this.value)"><output id="osd">2.5 u/giorno</output>
+      <input type="number" id="nsd" min="0.1" max="15" step="0.1" value="2.5" aria-label="Deviazione standard domanda giornaliera" oninput="upd('sd',+this.value)"></div>
+    <div class="rw"><label>Lead time &mdash; L (giorni)</label>
+      <input type="range" id="rL" min="1" max="60" step="1" value="14" style="flex:1"
+        oninput="upd('L',+this.value)"><output id="oL">14 giorni</output>
+      <input type="number" id="nL" min="1" max="60" step="1" value="14" aria-label="Lead time" oninput="upd('L',+this.value)"></div>
+    <div class="rw"><label>Fattore di servizio &mdash; Z</label>
+      <input type="range" id="rZ" min="1.00" max="2.58" step="0.01" value="1.645" style="flex:1"
+        oninput="upd('Z',+this.value)"><output id="oZ">1.645 &rarr; 95%</output>
+      <input type="number" id="nZ" min="1.00" max="2.58" step="0.01" value="1.645" aria-label="Fattore di servizio Z" oninput="upd('Z',+this.value)"></div>
+  </div>
+  <h4>Anteprima immediata</h4>
+  <div class="g3">
+    <div class="mc"><p class="ml">EOQ &mdash; Lotto Economico</p>
+      <p class="mv" id="prEOQ">245</p><p class="mu">unit&agrave;/ordine</p></div>
+    <div class="mc"><p class="ml">Safety Stock (SS)</p>
+      <p class="mv" id="prSS">15</p><p class="mu">unit&agrave; di scorta</p></div>
+    <div class="mc"><p class="ml">Punto di Riordino (ROP)</p>
+      <p class="mv" id="prROP">207</p><p class="mu">unit&agrave; trigger</p></div>
+    <div class="mc"><p class="ml">Costo Totale Annuo</p>
+      <p class="mv" id="prTC">&euro; 6.124</p><p class="mu">&euro;/anno</p></div>
+  </div>
+  <button style="font-size:13px;padding:8px 18px;cursor:pointer;border-radius:var(--border-radius-md);
+    border:0.5px solid var(--color-border-secondary);background:transparent;color:inherit"
+    onclick="switchTab(1)">Analisi completa &rarr;</button>
+</div>
+
+<!-- =========================== PANNELLO 1 - RISULTATI =========================== -->
+<div id="p1" class="pn">
+  <h3>Risultati del Calcolo</h3>
+  <div class="g3">
+    <div class="mc"><p class="ml">EOQ</p><p class="mv" id="r1">&mdash;</p><p class="mu">unit&agrave;/ordine</p></div>
+    <div class="mc"><p class="ml">Safety Stock</p><p class="mv" id="r2">&mdash;</p><p class="mu">unit&agrave;</p></div>
+    <div class="mc"><p class="ml">Punto di Riordino</p><p class="mv" id="r3">&mdash;</p><p class="mu">unit&agrave;</p></div>
+    <div class="mc"><p class="ml">Ordini / Anno</p><p class="mv" id="r4">&mdash;</p><p class="mu">ordini</p></div>
+    <div class="mc"><p class="ml">Ciclo di Riordino</p><p class="mv" id="r5">&mdash;</p><p class="mu">giorni</p></div>
+    <div class="mc"><p class="ml">Costo Tot. Inventario</p><p class="mv" id="r6">&mdash;</p><p class="mu">&euro;/anno (senza SS)</p></div>
+  </div>
+  <div class="sep"></div>
+  <h4>Confronto Modello Classico vs Safety Stock</h4>
+  <table>
+    <thead><tr><th>Parametro</th><th>EOQ Classico</th><th>EOQ + Safety Stock</th><th>Variazione</th></tr></thead>
+    <tbody>
+      <tr><td>EOQ (unit&agrave;/ordine)</td><td id="cc1">&mdash;</td><td id="cs1">&mdash;</td><td>&mdash;</td></tr>
+      <tr><td>Safety Stock (unit&agrave;)</td><td>0</td><td id="cs2">&mdash;</td><td id="cd2">&mdash;</td></tr>
+      <tr><td>ROP (unit&agrave;)</td><td id="cc3">&mdash;</td><td id="cs3">&mdash;</td><td id="cd3">&mdash;</td></tr>
+      <tr><td>Scorta media (unit&agrave;)</td><td id="cc4">&mdash;</td><td id="cs4">&mdash;</td><td id="cd4">&mdash;</td></tr>
+      <tr><td>Costo Tot. (&euro;/anno)</td><td id="cc5">&mdash;</td><td id="cs5">&mdash;</td><td id="cd5">&mdash;</td></tr>
+      <tr><td>Livello di servizio</td><td><span class="tg td">~50%</span></td><td id="cs6">&mdash;</td><td>&mdash;</td></tr>
+      <tr><td>Costo aggiunt. SS (&euro;/anno)</td><td>&mdash;</td><td id="cs7">&mdash;</td><td id="cd7">&mdash;</td></tr>
+    </tbody>
+  </table>
+  <div class="sep"></div>
+  <h4>Formule Applicate</h4>
+  <div class="eq" id="feq">&mdash;</div>
+</div>
+
+<!-- =========================== PANNELLO 2 - GRAFICI =========================== -->
+<div id="p2" class="pn">
+  <h3>Analisi Grafica</h3>
+  <h4>Curva dei Costi EOQ &mdash; Costo vs Quantit&agrave; Ordinata</h4>
+  <div class="lg">
+    <span><span class="dot" style="background:#378ADD"></span>Costo Totale</span>
+    <span><span class="dot" style="background:#1D9E75"></span>Costo Ordinazione</span>
+    <span><span class="dot" style="background:#BA7517"></span>Costo Stoccaggio</span>
+  </div>
+  <div style="position:relative;width:100%;height:270px"><canvas id="cCost"></canvas></div>
+  <div class="sep"></div>
+  <h4>Profilo Inventario &mdash; Con e Senza Safety Stock (4 cicli)</h4>
+  <div class="lg">
+    <span><span class="dot" style="background:#378ADD"></span>Con Safety Stock</span>
+    <span><span class="dot" style="background:#E24B4A"></span>Senza Safety Stock</span>
+    <span><span class="dot" style="background:#888;height:3px;border-radius:0"></span>Livello SS</span>
+  </div>
+  <div style="position:relative;width:100%;height:270px"><canvas id="cInv"></canvas></div>
+</div>
+
+<!-- =========================== PANNELLO 3 - SIMULAZIONE =========================== -->
+<div id="p3" class="pn">
+  <h3>Simulazione Triennale 2022&ndash;2024</h3>
+  <h4>Domanda Mensile per Anno (dati generati)</h4>
+  <div class="lg">
+    <span><span class="dot" style="background:rgba(55,138,221,0.8)"></span>Anno 2022</span>
+    <span><span class="dot" style="background:rgba(29,158,117,0.8)"></span>Anno 2023</span>
+    <span><span class="dot" style="background:rgba(186,117,23,0.8)"></span>Anno 2024</span>
+  </div>
+  <div style="position:relative;width:100%;height:280px"><canvas id="cSim"></canvas></div>
+  <div class="sep"></div>
+  <h4>Riepilogo Annuale &mdash; Parametri e Risultati EOQ</h4>
+  <table>
+    <thead><tr>
+      <th>Anno</th><th>D (unit&agrave;)</th><th>S (&euro;)</th><th>H (&euro;)</th>
+      <th>&sigma;<sub>d</sub></th><th>EOQ</th><th>SS</th><th>ROP</th>
+      <th>N Ordini</th><th>Ciclo (gg)</th><th>TC (&euro;)</th>
+    </tr></thead>
+    <tbody>
+      <tr><td><strong>2022</strong></td><td>5.000</td><td>150</td><td>25</td><td>2.5</td>
+        <td>245</td><td>15</td><td>207</td><td>20.4</td><td>17.9</td><td>6.124</td></tr>
+      <tr><td><strong>2023</strong></td><td>5.800</td><td>150</td><td>27</td><td>3.2</td>
+        <td>254</td><td>20</td><td>243</td><td>22.8</td><td>16.0</td><td>6.854</td></tr>
+      <tr><td><strong>2024</strong></td><td>6.200</td><td>160</td><td>28</td><td>3.8</td>
+        <td>266</td><td>23</td><td>261</td><td>23.3</td><td>15.7</td><td>7.453</td></tr>
+    </tbody>
+  </table>
+  <div class="sep"></div>
+  <h4>Evoluzione Triennale &mdash; Confronto Costi</h4>
+  <div class="lg">
+    <span><span class="dot" style="background:#378ADD"></span>TC con SS</span>
+    <span><span class="dot" style="background:rgba(55,138,221,0.3)"></span>Costo SS aggiuntivo</span>
+  </div>
+  <div style="position:relative;width:100%;height:220px"><canvas id="cCmp"></canvas></div>
+</div>
+
+<!-- =========================== PANNELLO 4 - REPORT =========================== -->
+<div id="p4" class="pn">
+  <h3>Report Comparativo e Analisi</h3>
+  <div class="cd">
+    <h4 style="margin-top:0">Descrizione del Sistema Implementato</h4>
+    <p class="nt">Il software implementa il modello EOQ (Economic Order Quantity) integrato con la gestione
+    della Scorta di Sicurezza per articoli a domanda indipendente. L'obiettivo &egrave; la minimizzazione dei
+    costi totali di inventario (ordinazione + stoccaggio) garantendo la continuit&agrave; operativa attraverso
+    un livello di servizio configurabile (Z-score).</p>
+  </div>
+  <div class="cd">
+    <h4 style="margin-top:0">Formulario Matematico</h4>
+    <div class="eq">EOQ = &radic;(2 &times; D &times; S / H)&nbsp;&nbsp;&rarr;&nbsp;Quantit&agrave; ottimale da ordinare</div>
+    <div class="eq">SS = Z &times; &sigma;<sub>d</sub> &times; &radic;L&nbsp;&nbsp;&rarr;&nbsp;Scorta di sicurezza</div>
+    <div class="eq">ROP = (D/365) &times; L + SS&nbsp;&nbsp;&rarr;&nbsp;Livello di riordino</div>
+    <div class="eq">TC(Q) = (D/Q)&times;S + (Q/2)&times;H&nbsp;&nbsp;&rarr;&nbsp;Costo totale annuo</div>
+  </div>
+  <div class="cd">
+    <h4 style="margin-top:0">Conclusioni</h4>
+    <p class="nt">Il modello EOQ con Safety Stock rappresenta la soluzione di gestione scorte ottimale per
+    ambienti produttivi realistici con domanda variabile. L'investimento marginale nel mantenimento della
+    scorta di sicurezza (tipicamente 6&ndash;9% del costo totale di inventario) garantisce una riduzione del
+    rischio di stockout dal 50% al 5%, assicurando continuit&agrave; operativa e soddisfazione del cliente.</p>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+/* ============================== NAVIGAZIONE ============================== */
+const TABS=['Parametri','Risultati','Grafici','Simulazione','Report'];
+const nav=document.getElementById('nav');
+let activeT=0;
+TABS.forEach((t,i)=>{
+  const b=document.createElement('button');
+  b.className='tb'+(i===0?' on':'');b.textContent=t;
+  b.onclick=()=>switchTab(i);nav.appendChild(b);
+});
+function switchTab(i){
+  document.querySelectorAll('.pn').forEach((p,j)=>p.classList.toggle('on',j===i));
+  document.querySelectorAll('.tb').forEach((b,j)=>b.classList.toggle('on',j===i));
+  activeT=i;
+  if(i===2)setTimeout(initCharts2,60);
+  if(i===3)setTimeout(initCharts3,60);
+}
+
+/* ============================== MODELLO MATEMATICO ============================== */
+let P={D:5000,S:150,H:25,sd:2.5,L:14,Z:1.645};
+const calcEOQ=()=>Math.sqrt(2*P.D*P.S/P.H);
+const calcSS =()=>P.Z*P.sd*Math.sqrt(P.L);
+const calcROP=()=>(P.D/365)*P.L+calcSS();
+const calcTC =(Q)=>(P.D/Q)*P.S+(Q/2)*P.H;
+const calcN  =()=>P.D/calcEOQ();
+const calcT  =()=>calcEOQ()/P.D*365;
+
+function zSL(z){
+  if(z>=2.576)return 99.5;if(z>=2.326)return 99;if(z>=2.054)return 98;
+  if(z>=1.960)return 97.5;if(z>=1.881)return 97;if(z>=1.751)return 96;
+  if(z>=1.645)return 95;if(z>=1.476)return 93;if(z>=1.282)return 90;
+  if(z>=1.036)return 85;return 80;
+}
+function fmt(n,d=0){return Number(n).toLocaleString('it-IT',{minimumFractionDigits:d,maximumFractionDigits:d});}
+function fmtE(n){return '€ '+fmt(Math.round(n));}
+
+/* ============================== CONTROLLER ============================== */
+function setInputValue(id,value){
+  const el=document.getElementById(id);
+  if(el && el!==document.activeElement) el.value=value;
+}
+function upd(k,v){
+  if(Number.isNaN(v)) return;
+  P[k]=v;
+  if(k==='D'){setInputValue('rD',v);setInputValue('nD',v);document.getElementById('oD').textContent=fmt(v)+' unità';}
+  if(k==='S'){setInputValue('rS',v);setInputValue('nS',v);document.getElementById('oS').textContent='€ '+fmt(v);}
+  if(k==='H'){setInputValue('rH',v);setInputValue('nH',v);document.getElementById('oH').textContent='€ '+fmt(v);}
+  if(k==='sd'){setInputValue('rsd',v);setInputValue('nsd',v);document.getElementById('osd').textContent=Number(v).toFixed(1)+' u/giorno';}
+  if(k==='L'){setInputValue('rL',v);setInputValue('nL',v);document.getElementById('oL').textContent=v+' giorni';}
+  if(k==='Z'){setInputValue('rZ',v);setInputValue('nZ',v);document.getElementById('oZ').textContent=Number(v).toFixed(3)+' → '+zSL(v)+'%';}
+  calcAll();
+}
+
+function calcAll(){
+  const EOQ=calcEOQ(),SS=calcSS(),ROP=calcROP(),N=calcN(),T=calcT(),TC=calcTC(EOQ);
+  const ROPcl=(P.D/365)*P.L;
+  const sl=zSL(P.Z);
+  const TCss=TC+SS*P.H;
+  const avgSS=EOQ/2+SS,avgCl=EOQ/2;
+  const s=id=>document.getElementById(id);
+
+  // Pannello 0 - anteprima
+  s('prEOQ').textContent=fmt(Math.round(EOQ));
+  s('prSS').textContent=fmt(Math.round(SS));
+  s('prROP').textContent=fmt(Math.round(ROP));
+  s('prTC').textContent=fmtE(TCss);
+
+  // Pannello 1 - risultati
+  s('r1').textContent=fmt(Math.round(EOQ));
+  s('r2').textContent=fmt(Math.round(SS));
+  s('r3').textContent=fmt(Math.round(ROP));
+  s('r4').textContent=fmt(N,1);
+  s('r5').textContent=fmt(T,1)+' gg';
+  s('r6').textContent=fmtE(TC);
+  s('cc1').textContent=fmt(Math.round(EOQ));s('cs1').textContent=fmt(Math.round(EOQ));
+  s('cs2').textContent=fmt(Math.round(SS));s('cd2').textContent='+'+fmt(Math.round(SS))+' unità';
+  s('cc3').textContent=fmt(Math.round(ROPcl));s('cs3').textContent=fmt(Math.round(ROP));
+  s('cd3').textContent='+'+fmt(Math.round(ROP-ROPcl))+' unità';
+  s('cc4').textContent=fmt(Math.round(avgCl));s('cs4').textContent=fmt(Math.round(avgSS));
+  s('cd4').textContent='+'+fmt(Math.round(avgSS-avgCl))+' unità';
+  s('cc5').textContent=fmtE(TC);s('cs5').textContent=fmtE(TCss);
+  const dTC=SS*P.H;
+  s('cd5').textContent='+'+fmtE(dTC)+' (+'+((dTC/TC)*100).toFixed(1)+'%)';
+  s('cs6').innerHTML='<span class="tg ts">'+sl+'%</span>';
+  s('cs7').textContent=fmtE(SS*P.H)+'/anno';
+  s('cd7').textContent=((SS*P.H/TC)*100).toFixed(1)+'% del TC';
+  s('feq').innerHTML=
+     'EOQ = √(2 × '+fmt(P.D)+' × '+fmt(P.S)+' / '+fmt(P.H)+') = <strong>'+fmt(Math.round(EOQ))+'</strong> unità<br>'+
+     'SS = '+P.Z.toFixed(3)+' × '+P.sd.toFixed(1)+' × √'+P.L+' = <strong>'+fmt(Math.round(SS))+'</strong> unità<br>'+
+     'ROP = ('+fmt(P.D)+'/365) × '+P.L+' + '+fmt(Math.round(SS))+' = <strong>'+fmt(Math.round(ROP))+'</strong> unità<br>'+
+     'TC(EOQ) = ('+fmt(P.D)+'/'+fmt(Math.round(EOQ))+')×'+fmt(P.S)+' + ('+fmt(Math.round(EOQ))+'/2)×'+fmt(P.H)+' = <strong>'+fmtE(TC)+'</strong>/anno';
+  if(activeT===2)initCharts2();
+}
+
+/* ============================== GRAFICI ============================== */
+function id(x){return document.getElementById(x);}
+let cCost=null,cInv=null,cSim=null,cCmp=null;
+
+function initCharts2(){
+  if(typeof Chart==='undefined')return;
+  const EOQ=calcEOQ(),SS=calcSS();
+  const qs=[],tcs=[],ords=[],holds=[];
+  for(let i=0.15;i<=3.6;i+=0.12){
+    const q=EOQ*i;
+    qs.push(Math.round(q));
+    ords.push(Math.round((P.D/q)*P.S));
+    holds.push(Math.round((q/2)*P.H));
+    tcs.push(Math.round((P.D/q)*P.S+(q/2)*P.H));
+  }
+  const ctx1=id('cCost').getContext('2d');
+  if(cCost)cCost.destroy();
+  cCost=new Chart(ctx1,{type:'line',data:{labels:qs,datasets:[
+    {label:'Costo Totale',data:tcs,borderColor:'#378ADD',borderWidth:2.5,pointRadius:0,fill:false,tension:0.35},
+    {label:'Costo Ordinazione',data:ords,borderColor:'#1D9E75',borderWidth:1.5,borderDash:[5,4],pointRadius:0,fill:false,tension:0.35},
+    {label:'Costo Stoccaggio',data:holds,borderColor:'#BA7517',borderWidth:1.5,borderDash:[5,4],pointRadius:0,fill:false,tension:0.35}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{x:{title:{display:true,text:'Quantità ordinata Q (unità)'}},
+            y:{title:{display:true,text:'Costo annuo (€)'}}}}});
+
+  const d=P.D/365;
+  const cLen=Math.max(1,Math.round(EOQ/d));
+  const invSS=[],invCl=[],invSSline=[],lbs=[];
+  for(let c=0;c<4;c++){
+    for(let t=0;t<=cLen;t++){
+      lbs.push('G'+(c*cLen+t));
+      if(t<cLen){
+        invSS.push(Math.round(EOQ+SS-d*t));
+        invCl.push(Math.max(0,Math.round(EOQ-d*t)));
+        invSSline.push(Math.round(SS));
+      } else {
+        invSS.push(null);invCl.push(null);invSSline.push(Math.round(SS));
+      }
+    }
+  }
+  const ctx2=id('cInv').getContext('2d');
+  if(cInv)cInv.destroy();
+  cInv=new Chart(ctx2,{type:'line',data:{labels:lbs,datasets:[
+    {label:'Con SS',data:invSS,borderColor:'#378ADD',borderWidth:2,pointRadius:0,fill:false,tension:0,spanGaps:false},
+    {label:'Senza SS',data:invCl,borderColor:'#E24B4A',borderWidth:2,pointRadius:0,fill:false,tension:0,spanGaps:false},
+    {label:'Livello SS',data:invSSline,borderColor:'#888',borderWidth:1,borderDash:[3,3],pointRadius:0,fill:false}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{x:{title:{display:true,text:'Tempo (giorni)'}},
+            y:{title:{display:true,text:'Livello scorte (unità)'},min:0}}}});
+}
+
+function initCharts3(){
+  if(typeof Chart==='undefined')return;
+  const months=['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+  const d22=[295,318,397,436,478,505,524,518,465,425,360,279];
+  const d23=[342,368,460,506,554,585,607,601,539,492,417,329];
+  const d24=[365,393,492,541,592,625,648,641,576,526,446,355];
+  const lbs=[...months.map(m=>m+"'22"),...months.map(m=>m+"'23"),...months.map(m=>m+"'24")];
+  const ctx3=id('cSim').getContext('2d');
+  if(cSim)cSim.destroy();
+  cSim=new Chart(ctx3,{type:'bar',data:{labels:lbs,datasets:[
+    {label:'2022',data:[...d22,...Array(24).fill(null)],backgroundColor:'rgba(55,138,221,0.75)',borderRadius:2},
+    {label:'2023',data:[...Array(12).fill(null),...d23,...Array(12).fill(null)],backgroundColor:'rgba(29,158,117,0.75)',borderRadius:2},
+    {label:'2024',data:[...Array(24).fill(null),...d24],backgroundColor:'rgba(186,117,23,0.75)',borderRadius:2}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{x:{title:{display:true,text:'Mese'},ticks:{maxRotation:45,autoSkip:false}},
+            y:{title:{display:true,text:'Domanda mensile (unità)'}}}}});
+
+  const ctx4=id('cCmp').getContext('2d');
+  if(cCmp)cCmp.destroy();
+  cCmp=new Chart(ctx4,{type:'bar',data:{labels:['2022','2023','2024'],datasets:[
+    {label:'TC base',data:[6124,6854,7453],backgroundColor:'rgba(55,138,221,0.8)',borderRadius:4},
+    {label:'Costo SS',data:[375,540,644],backgroundColor:'rgba(55,138,221,0.25)',borderRadius:4}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:'Costo (€/anno)'}}}}});
+}
+
+calcAll();
+</script>
+</body>
+</html> 
